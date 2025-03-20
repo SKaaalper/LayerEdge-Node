@@ -7,7 +7,7 @@ fi
 
 clear
 echo -e "\e[1;34m==========================================\e[0m"
-echo -e "\e[1;32m=          Layer Edge Node           =\e[0m"
+echo -e "\e[1;32m=          Layer Edge Node Setup      =\e[0m"
 echo -e "\e[1;36m=  https://t.me/KatayanAirdropGnC    =\e[0m"
 echo -e "\e[1;33m=           Batang Eds               =\e[0m"
 echo -e "\e[1;34m==========================================\e[0m\n"
@@ -74,60 +74,61 @@ if [[ "$go_version" != *"go1.23"* ]]; then
   exit 1
 fi
 
+echo -e "\e[1;32mEnter your MetaMask Private Key (64-character hexadecimal string):\e[0m"
+read -r PRIVATE_KEY
+if [ -z "$PRIVATE_KEY" ] || [ ${#PRIVATE_KEY} -ne 64 ]; then
+  echo -e "\e[31mInvalid private key. It must be a 64-character hexadecimal string.\e[0m"
+  exit 1
+fi
+
+echo -e "\e[1;32mEnter your GRPC_URL (default is 34.31.74.109:9090, press Enter to use default):\e[0m"
+read -r GRPC_URL
+if [ -z "$GRPC_URL" ]; then
+  GRPC_URL="34.31.74.109:9090"
+fi
+
+echo -e "\e[1;32mChoose ZK_PROVER_URL (Enter 1 for local http://127.0.0.1:3001, Enter 2 for https://layeredge.mintair.xyz/, default is 1):\e[0m"
+read -r ZK_CHOICE
+if [ "$ZK_CHOICE" = "2" ]; then
+  ZK_PROVER_URL="https://layeredge.mintair.xyz/"
+else
+  ZK_PROVER_URL="http://127.0.0.1:3001"
+fi
+
+echo -e "\e[1;34mTesting GRPC_URL connectivity: $GRPC_URL...\e[0m"
+GRPC_HOST=$(echo $GRPC_URL | cut -d: -f1)
+GRPC_PORT=$(echo $GRPC_URL | cut -d: -f2)
+nc -zv $GRPC_HOST $GRPC_PORT
+if [ $? -ne 0 ]; then
+  echo -e "\e[31mWarning: Unable to connect to $GRPC_URL. Ensure the address is correct or retry later.\e[0m"
+fi
+
 echo -e "\e[1;34mSetting environment variables...\e[0m"
 cat << EOF > $WORK_DIR/.env
-GRPC_URL=34.31.74.109:9090
+GRPC_URL=$GRPC_URL
 CONTRACT_ADDR=cosmos1ufs3tlq4umljk0qfe8k5ya0x6hpavn897u2cnf9k0en9jr7qarqqt56709
-ZK_PROVER_URL=http://127.0.0.1:3001
+ZK_PROVER_URL=$ZK_PROVER_URL
 API_REQUEST_TIMEOUT=100
-POINTS_API=http://127.0.0.1:8080
-PRIVATE_KEY='cli-node-private-key'
+POINTS_API=https://light-node.layeredge.io
+PRIVATE_KEY='$PRIVATE_KEY'
 EOF
 if [ ! -f "$WORK_DIR/.env" ]; then
-  echo -e "\e[31mFailed to create .env file, please check permissions or disk space\e[0m"
+  echo -e "\e[31mFailed to create .env file. Please check permissions or disk space.\e[0m"
   exit 1
 fi
 echo -e "\e[1;35mEnvironment variables have been written to:\e[0m $WORK_DIR/.env"
-cat $WORK_DIR/.env
 
 echo -e "\e[1;32mBuilding and starting risc0-merkle-service...\e[0m"
 cd $WORK_DIR/risc0-merkle-service
 cargo build
-if [ $? -ne 0 ]; then
-  echo -e "\e[31mrisc0-merkle-service build failed, please check Rust and RISC0 environment\e[0m"
-  exit 1
-fi
 cargo run > risc0.log 2>&1 &
-RISC0_PID=$!
-echo -e "\e[1;34mrisc0-merkle-service has started, PID: $RISC0_PID, logs output to risc0.log\e[0m"
-
-sleep 5
-if ! ps -p $RISC0_PID > /dev/null; then
-  echo -e "\e[31mrisc0-merkle-service failed to start, please check $WORK_DIR/risc0-merkle-service/risc0.log\e[0m"
-  cat $WORK_DIR/risc0-merkle-service/risc0.log
-  exit 1
-fi
 
 echo -e "\e[1;32mBuilding and starting light-node...\e[0m"
 cd $WORK_DIR
 go mod tidy
 go build
-if [ $? -ne 0 ]; then
-  echo -e "\e[31mlight-node build failed, please check Go environment or dependencies\e[0m"
-  exit 1
-fi
-
 source $WORK_DIR/.env
 ./light-node > light-node.log 2>&1 &
-LIGHT_NODE_PID=$!
-echo -e "\e[1;34mlight-node has started, PID: $LIGHT_NODE_PID, logs output to light-node.log\e[0m"
-
-sleep 5
-if ! ps -p $LIGHT_NODE_PID > /dev/null; then
-  echo -e "\e[31mlight-node failed to start, please check $WORK_DIR/light-node.log\e[0m"
-  cat $WORK_DIR/light-node.log
-  exit 1
-fi
 
 echo -e "\e[1;32mAll services have started!\e[0m"
 echo -e "\e[1;34mCheck logs:\e[0m"
