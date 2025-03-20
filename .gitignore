@@ -1,0 +1,22 @@
+# Ignore environment and secret files
+.env
+.env.enc
+
+# Ignore compiled binaries
+light-node
+risc0-merkle-service
+
+# Ignore logs
+*.log
+
+# Ignore temporary files
+*.swp
+*.swo
+*.tmp
+*.bak
+.DS_Store
+
+# Ignore dependencies
+/target/
+/node_modules/
+/vendor/
