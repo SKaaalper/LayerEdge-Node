@@ -9,14 +9,22 @@ risc0-merkle-service
 # Ignore logs
 *.log
 
-# Ignore temporary files
+# Ignore temporary and editor files
 *.swp
 *.swo
 *.tmp
 *.bak
 .DS_Store
+.idea/
+.vscode/
 
 # Ignore dependencies
-/target/
-/node_modules/
-/vendor/
+/target/        # Rust build output
+/node_modules/  # JavaScript dependencies
+/vendor/        # Go dependency directory
+
+# Ignore Go build artifacts
+*.o
+*.a
+*.out
+go.work
