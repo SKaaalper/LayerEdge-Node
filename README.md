@@ -10,7 +10,7 @@ curl -L https://raw.githubusercontent.com/SKaaalper/LayerEdge-Node/main/setup_li
 ```
 tail -f /root/light-node/light-node.log
 ```
-➖ Copy your Pubkey Address and submit it to your own dashboard, Now go to ▶️ [Submit Here](https://dashboard.layeredge.io/)  ▶️ Go to **CLI-Based Node Points** if you see **+** then Click ▶️ Submit your `Pubkey Address` And done!
+➖ Copy your Pubkey Address and submit it to your own dashboard, Now go to ▶️ [Submit Here](https://dashboard.layeredge.io/)  ▶️ Go to **CLI-Based Node Points** if you see `+` then Click ▶️ Submit your `Pubkey Address` And done!
 
 ![image](https://github.com/user-attachments/assets/eacdc83c-b0c2-4156-875f-b8b29d06dcb2)
 
