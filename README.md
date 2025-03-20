@@ -14,6 +14,11 @@ tail -f /root/light-node/light-node.log
 
 ![image](https://github.com/user-attachments/assets/eacdc83c-b0c2-4156-875f-b8b29d06dcb2)
 
+➖ Go to `Task` section and Click `Verify CLI`:
+
+![image](https://github.com/user-attachments/assets/b0792efc-0df7-4d98-9d31-c4a8e4e8cc0f)
+
+
 ➖ For Light node and Merkle:
 ```
 tail -f /root/light-node/risc0-merkle-service/risc0.log
