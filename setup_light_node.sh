@@ -1,9 +1,16 @@
 #!/bin/bash
 
 if [ "$EUID" -ne 0 ]; then
-  echo "Please run this script as root"
+  echo "Please run this script as the root user"
   exit 1
 fi
+
+clear
+echo -e "\n=========================================="
+echo -e "=           LayerEdge Node           ="
+echo -e "=  https://t.me/KatayanAirdropGnC    ="
+echo -e "=           Batang Eds               ="
+echo -e "==========================================\n"
 
 WORK_DIR="/root/light-node"
 echo "Working directory: $WORK_DIR"
@@ -13,16 +20,16 @@ apt update
 apt install -y git curl netcat-openbsd
 
 if [ -d "$WORK_DIR" ]; then
-  echo "$WORK_DIR detected, updating..."
+  echo "Detected that $WORK_DIR already exists, attempting to update..."
   cd $WORK_DIR
   git pull
 else
-  echo "Cloning Layer Edge Light Node repository..."
+  echo "Cloning the Layer Edge Light Node repository..."
   git clone https://github.com/Layer-Edge/light-node.git $WORK_DIR
   cd $WORK_DIR
 fi
 if [ $? -ne 0 ]; then
-  echo "Failed to clone or update repository"
+  echo "Failed to clone or update the repository, please check your network or permissions"
   exit 1
 fi
 
@@ -32,22 +39,23 @@ if ! command -v rustc &> /dev/null; then
   source $HOME/.cargo/env
 fi
 rust_version=$(rustc --version)
-echo "Rust version: $rust_version"
+echo "Current Rust version: $rust_version"
 
-echo "Installing RISC0 toolchain..."
+echo "Installing the RISC0 toolchain manager (rzup)..."
 curl -L https://risczero.com/install | bash
 export PATH=$PATH:/root/.risc0/bin
 echo 'export PATH=$PATH:/root/.risc0/bin' >> /root/.bashrc
 source /root/.bashrc
 if ! command -v rzup &> /dev/null; then
-  echo "rzup installation failed"
+  echo "rzup installation failed, please check your network or install manually"
   exit 1
 fi
+echo "Installing the RISC0 toolchain..."
 rzup install
 rzup_version=$(rzup --version)
-echo "rzup version: $rzup_version"
+echo "Current rzup version: $rzup_version"
 
-echo "Installing Go 1.23.1..."
+echo "Installing/upgrading Go to 1.23.1..."
 wget -q https://go.dev/dl/go1.23.1.linux-amd64.tar.gz -O /tmp/go1.23.1.tar.gz
 rm -rf /usr/local/go
 tar -C /usr/local -xzf /tmp/go1.23.1.tar.gz
@@ -55,78 +63,75 @@ export PATH=/usr/local/go/bin:$PATH
 echo 'export PATH=/usr/local/go/bin:$PATH' >> /root/.bashrc
 source /root/.bashrc
 go_version=$(go version)
-echo "Go version: $go_version"
+echo "Current Go version: $go_version"
 
 if ! command -v go &> /dev/null; then
-  echo "Go installation failed"
+  echo "Go installation failed, please check your network or install manually"
   exit 1
 fi
 if [[ "$go_version" != *"go1.23"* ]]; then
-  echo "Go version is not 1.23.1, please check installation"
+  echo "Go version was not upgraded to 1.23.1, please check the installation steps"
   exit 1
 fi
 
-echo "Enter your PRIVATE_KEY (64-character hex string):"
-read -r PRIVATE_KEY
-if [ -z "$PRIVATE_KEY" ] || [ ${#PRIVATE_KEY} -ne 64 ]; then
-  echo "Invalid private key, please rerun the script"
-  exit 1
-fi
-
-echo "Enter your GRPC_URL (default 34.31.74.109:9090):"
-read -r GRPC_URL
-GRPC_URL=${GRPC_URL:-34.31.74.109:9090}
-
-echo "Choose ZK_PROVER_URL (1 for local, 2 for cloud):"
-read -r ZK_CHOICE
-if [ "$ZK_CHOICE" = "2" ]; then
-  ZK_PROVER_URL="https://layeredge.mintair.xyz/"
-else
-  ZK_PROVER_URL="http://127.0.0.1:3001"
-fi
-
-echo "Testing GRPC_URL connectivity: $GRPC_URL..."
-GRPC_HOST=$(echo $GRPC_URL | cut -d: -f1)
-GRPC_PORT=$(echo $GRPC_URL | cut -d: -f2)
-nc -zv $GRPC_HOST $GRPC_PORT
-if [ $? -ne 0 ]; then
-  echo "Warning: Cannot connect to $GRPC_URL"
-fi
-
-echo "Creating .env file..."
+echo "Setting environment variables..."
 cat << EOF > $WORK_DIR/.env
-GRPC_URL=$GRPC_URL
+GRPC_URL=34.31.74.109:9090
 CONTRACT_ADDR=cosmos1ufs3tlq4umljk0qfe8k5ya0x6hpavn897u2cnf9k0en9jr7qarqqt56709
-ZK_PROVER_URL=$ZK_PROVER_URL
+ZK_PROVER_URL=http://127.0.0.1:3001
 API_REQUEST_TIMEOUT=100
-POINTS_API=https://light-node.layeredge.io
-PRIVATE_KEY='$PRIVATE_KEY'
+POINTS_API=http://127.0.0.1:8080
+PRIVATE_KEY='cli-node-private-key'
 EOF
-chmod 600 $WORK_DIR/.env
+if [ ! -f "$WORK_DIR/.env" ]; then
+  echo "Failed to create .env file, please check permissions or disk space"
+  exit 1
+fi
+echo "Environment variables have been written to $WORK_DIR/.env"
+cat $WORK_DIR/.env
 
-echo "Building risc0-merkle-service..."
+echo "Building and starting risc0-merkle-service..."
 cd $WORK_DIR/risc0-merkle-service
 cargo build
 if [ $? -ne 0 ]; then
-  echo "Failed to build risc0-merkle-service"
+  echo "risc0-merkle-service build failed, please check Rust and RISC0 environment"
   exit 1
 fi
 cargo run > risc0.log 2>&1 &
-echo "risc0-merkle-service running, log at risc0.log"
+RISC0_PID=$!
+echo "risc0-merkle-service has started, PID: $RISC0_PID, logs output to risc0.log"
 
 sleep 5
-echo "Building light-node..."
+if ! ps -p $RISC0_PID > /dev/null; then
+  echo "risc0-merkle-service failed to start, please check $WORK_DIR/risc0-merkle-service/risc0.log"
+  cat $WORK_DIR/risc0-merkle-service/risc0.log
+  exit 1
+fi
+
+echo "Building and starting light-node..."
 cd $WORK_DIR
 go mod tidy
 go build
 if [ $? -ne 0 ]; then
-  echo "Failed to build light-node"
+  echo "light-node build failed, please check Go environment or dependencies"
   exit 1
 fi
 
 source $WORK_DIR/.env
 ./light-node > light-node.log 2>&1 &
-echo "light-node running, log at light-node.log"
+LIGHT_NODE_PID=$!
+echo "light-node has started, PID: $LIGHT_NODE_PID, logs output to light-node.log"
 
 sleep 5
-echo "Setup complete Backed by: Eds 😬!"
+if ! ps -p $LIGHT_NODE_PID > /dev/null; then
+  echo "light-node failed to start, please check $WORK_DIR/light-node.log"
+  cat $WORK_DIR/light-node.log
+  exit 1
+fi
+
+echo "All services have started, Congrats 🎉!"
+echo "Check logs:"
+echo "- risc0-merkle-service: $WORK_DIR/risc0-merkle-service/risc0.log"
+echo "- light-node: $WORK_DIR/light-node.log"
+echo "To connect to the dashboard, visit dashboard.layeredge.io and use your public key link"
+
