@@ -129,4 +129,4 @@ source $WORK_DIR/.env
 echo "light-node running, log at light-node.log"
 
 sleep 5
-echo "Setup complete!"
+echo "Setup complete Backed by: Eds 😬!"
