@@ -33,3 +33,5 @@ rm -rf /root/light-node
 ```
 
 ## 🚨 They are currently undergoing maintenance!  You can wait until the maintenance is over before running! 🚨
+
+## Layer Edge Official Guide: [here](https://docs.layeredge.io/introduction/developer-guide/run-a-node/light-node-setup-guide)
