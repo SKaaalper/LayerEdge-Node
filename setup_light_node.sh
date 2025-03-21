@@ -95,24 +95,34 @@ if [ "$START_LOCAL_PROVER" = true ]; then
   fi
 fi
 
-echo -e "\e[1;32mBuilding and starting light-node...\e[0m"
+# Build light-node and start in the background
+echo -e "\e[1;32mBuilding light-node...\e[0m"
 cd $WORK_DIR
 go mod tidy
 go build -o light-node main.go
-source $WORK_DIR/.env
-nohup ./light-node > light-node.log 2>&1 &
+
+echo -e "\e[1;32mStarting light-node in the background...\e[0m"
+nohup bash -c "source <(grep -v '^#' .env | xargs -d '\n' -I{} echo export {}); ./light-node" > light-node.log 2>&1 &
+
+if [ "$START_LOCAL_PROVER" = true ]; then
+  echo -e "\e[1;32mBuilding and starting risc0-merkle-service...\e[0m"
+  cd $WORK_DIR/risc0-merkle-service
+  nohup cargo run --release > risc0-merkle-service.log 2>&1 &
+fi
 
 sleep 10
 
-echo -e "\n==== PUBLIC KEY ====" >> $WORK_DIR/light-node.log
-env $(cat $WORK_DIR/.env | xargs) $WORK_DIR/light-node get-pubkey >> $WORK_DIR/light-node.log 2>&1
+echo -e "\n==== Fetching Public Key ====" >> $WORK_DIR/light-node.log
+PUBKEY=$(bash -c "source <(grep -v '^#' .env | xargs -d '\n' -I{} echo export {}); ./light-node get-pubkey")
+echo "$PUBKEY" >> $WORK_DIR/light-node.log
 echo -e "====================\n" >> $WORK_DIR/light-node.log
 
 echo -e "\e[1;34mYour Public Key:\e[0m"
-env $(cat $WORK_DIR/.env | xargs) $WORK_DIR/light-node get-pubkey | tee -a ~/layeredge_pubkey.txt
+echo "$PUBKEY" | tee -a ~/layeredge_pubkey.txt
 
-echo -e "\e[1;32mAll services have started!\e[0m"
+echo -e "\e[1;32mAll services have started in the background!\e[0m"
 echo -e "\e[1;34mCheck logs:\e[0m"
-[ "$START_LOCAL_PROVER" = true ] && echo -e "\e[1;36m- risc0-merkle-service:\e[0m $WORK_DIR/risc0-merkle-service/risc0.log"
-echo -e "\e[1;36m- light-node:\e[0m $WORK_DIR/light-node.log"
-echo -e "\e[1;33mTo connect to the dashboard, visit dashboard.layeredge.io and use your public key link\e[0m"
+[ "$START_LOCAL_PROVER" = true ] && echo -e "\e[1;36m- risc0-merkle-service log:\e[0m $WORK_DIR/risc0-merkle-service/risc0-merkle-service.log"
+echo -e "\e[1;36m- light-node log:\e[0m $WORK_DIR/light-node.log"
+echo -e "\e[1;33mTo connect to the dashboard, visit:\e[0m dashboard.layeredge.io and use your public key"
+
