@@ -18,8 +18,8 @@ echo -e "\e[1;35mWorking directory:\e[0m $WORK_DIR"
 sudo ufw allow 9090
 sudo ufw allow 3001
 
-apt update
-apt install -y git curl netcat-openbsd build-essential
+sudo apt update && sudo apt upgrade -y
+sudo apt install -y git curl build-essential pkg-config libssl-dev protobuf-compiler screen
 
 if [ -d "$WORK_DIR" ]; then
   echo -e "\e[1;33mDetected that $WORK_DIR already exists, updating...\e[0m"
