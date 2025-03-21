@@ -15,6 +15,9 @@ echo -e "\e[1;34m==========================================\e[0m\n"
 WORK_DIR="/root/light-node"
 echo -e "\e[1;35mWorking directory:\e[0m $WORK_DIR"
 
+sudo ufw allow 9090
+sudo ufw allow 3001
+
 apt update
 apt install -y git curl netcat-openbsd build-essential
 
