@@ -63,12 +63,12 @@ if [ -z "$GRPC_URL" ]; then
   GRPC_URL="grpc.testnet.layeredge.io:9090"
 fi
 
-echo -e "\e[1;32mChoose ZK_PROVER_URL (Enter 1 for local http://127.0.0.1:3001, Enter 2 for https://layeredge.mintair.xyz/, default is 1):\e[0m"
+echo -e "\e[1;32mChoose ZK_PROVER_URL (Enter 1 for local http://127.0.0.1:3001, Enter 2 for https://layeredge.mintair.xyz/, default is 2):\e[0m"
 read -r ZK_CHOICE
-if [ "$ZK_CHOICE" = "2" ]; then
-  ZK_PROVER_URL="https://layeredge.mintair.xyz/"
-else
+if [ "$ZK_CHOICE" = "1" ]; then
   ZK_PROVER_URL="http://127.0.0.1:3001"
+else
+  ZK_PROVER_URL="https://layeredge.mintair.xyz/"
 fi
 
 echo -e "\e[1;34mSetting environment variables...\e[0m"
@@ -84,7 +84,7 @@ EOF
 echo -e "\e[1;32mBuilding and starting risc0-merkle-service...\e[0m"
 cd $WORK_DIR/risc0-merkle-service
 cargo build --release
-cargo run --release > risc0.log 2>&1 &
+nohup cargo run --release > risc0.log 2>&1 &
 
 echo -e "\e[1;32mBuilding and starting light-node...\e[0m"
 cd $WORK_DIR
@@ -98,4 +98,3 @@ echo -e "\e[1;34mCheck logs:\e[0m"
 echo -e "\e[1;36m- risc0-merkle-service:\e[0m $WORK_DIR/risc0-merkle-service/risc0.log"
 echo -e "\e[1;36m- light-node:\e[0m $WORK_DIR/light-node.log"
 echo -e "\e[1;33mTo connect to the dashboard, visit dashboard.layeredge.io and use your public key link\e[0m"
-
