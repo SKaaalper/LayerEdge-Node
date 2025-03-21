@@ -1,10 +1,5 @@
 #!/bin/bash
 
-if [ "$EUID" -ne 0 ]; then
-  echo -e "\e[31mPlease run this script as the root user\e[0m"
-  exit 1
-fi
-
 clear
 echo -e "\e[1;34m==========================================\e[0m"
 echo -e "\e[1;32m=          Layer Edge Node Setup      =\e[0m"
@@ -12,128 +7,162 @@ echo -e "\e[1;36m=  https://t.me/KatayanAirdropGnC    =\e[0m"
 echo -e "\e[1;33m=           Batang Eds               =\e[0m"
 echo -e "\e[1;34m==========================================\e[0m\n"
 
-WORK_DIR="/root/light-node"
-echo -e "\e[1;35mWorking directory:\e[0m $WORK_DIR"
-
-# Open necessary ports
-sudo ufw allow 9090
-sudo ufw allow 3001
-
-# Install necessary dependencies
-sudo apt update && sudo apt upgrade -y
-sudo apt install -y git curl build-essential pkg-config libssl-dev protobuf-compiler screen
-
-# Clone or update the light-node repo
-if [ -d "$WORK_DIR" ]; then
-  echo -e "\e[1;33mDetected that $WORK_DIR already exists, updating...\e[0m"
-  cd $WORK_DIR && git pull
-else
-  echo -e "\e[1;32mCloning Layer Edge Light Node repository...\e[0m"
-  git clone https://github.com/Layer-Edge/light-node.git $WORK_DIR && cd $WORK_DIR
+if [ "$EUID" -ne 0 ]; then
+  echo "Please run this script as root"
+  exit 1
 fi
 
-# Install Rust if not already installed
+WORK_DIR="/root/light-node"
+echo "Working Directory: $WORK_DIR"
+
+echo "Installing essential tools (git, curl, netcat, and others)..."
+sudo apt update
+sudo apt install -y git curl netcat-openbsd
+sudo apt install -y build-essential pkg-config libssl-dev protobuf-compiler screen
+
+if [ -d "$WORK_DIR" ]; then
+  echo "Detected that $WORK_DIR exists, attempting to update..."
+  cd $WORK_DIR
+  git pull
+else
+  echo "Cloning Layer Edge Light Node repository..."
+  git clone https://github.com/Layer-Edge/light-node.git $WORK_DIR
+  cd $WORK_DIR
+fi
+if [ $? -ne 0 ]; then
+  echo "Failed to clone or update repository, check network or permissions"
+  exit 1
+fi
+
 if ! command -v rustc &> /dev/null; then
-  echo -e "\e[1;32mInstalling Rust...\e[0m"
+  echo "Installing Rust..."
   curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
   source $HOME/.cargo/env
 fi
+rust_version=$(rustc --version)
+echo "Current Rust version: $rust_version"
 
-# Install RISC0 toolchain
-echo -e "\e[1;32mInstalling the RISC0 toolchain manager (rzup)...\e[0m"
+echo "Installing RISC0 toolchain manager (rzup)..."
 curl -L https://risczero.com/install | bash
 export PATH=$PATH:/root/.risc0/bin
 echo 'export PATH=$PATH:/root/.risc0/bin' >> /root/.bashrc
 source /root/.bashrc
+if ! command -v rzup &> /dev/null; then
+  echo "rzup installation failed, check network or install manually"
+  exit 1
+fi
+echo "Installing RISC0 toolchain..."
 rzup install
+rzup_version=$(rzup --version)
+echo "Current rzup version: $rzup_version"
 
-# Install Go 1.23.1
-echo -e "\e[1;32mInstalling/upgrading Go to 1.23.1...\e[0m"
+echo "Installing/upgrading Go to 1.23.1..."
 wget -q https://go.dev/dl/go1.23.1.linux-amd64.tar.gz -O /tmp/go1.23.1.tar.gz
 rm -rf /usr/local/go
 tar -C /usr/local -xzf /tmp/go1.23.1.tar.gz
 export PATH=/usr/local/go/bin:$PATH
 echo 'export PATH=/usr/local/go/bin:$PATH' >> /root/.bashrc
 source /root/.bashrc
+go_version=$(go version)
+echo "Current Go version: $go_version"
 
-# Prompt for MetaMask private key
-echo -e "\e[1;32mEnter your MetaMask Private Key (64-character hexadecimal string):\e[0m"
-read -r PRIVATE_KEY
-if [ -z "$PRIVATE_KEY" ] || [ ${#PRIVATE_KEY} -ne 64 ]; then
-  echo -e "\e[31mInvalid private key. It must be a 64-character hexadecimal string.\e[0m"
+if ! command -v go &> /dev/null; then
+  echo "Go installation failed, check network or install manually"
+  exit 1
+fi
+if [[ "$go_version" != *"go1.23"* ]]; then
+  echo "Go version not upgraded to 1.23.1, check installation steps"
   exit 1
 fi
 
-# Prompt for GRPC_URL (with default)
-echo -e "\e[1;32mEnter your GRPC_URL (default is grpc.testnet.layeredge.io:9090, press Enter to use default):\e[0m"
+# User inputs for .env file
+echo "Please enter your PRIVATE_KEY (64-character hexadecimal string, press Enter after input):"
+read -r PRIVATE_KEY
+if [ -z "$PRIVATE_KEY" ] || [ ${#PRIVATE_KEY} -ne 64 ]; then
+  echo "Invalid private key, it must be a 64-character hexadecimal string. Please rerun the script"
+  exit 1
+fi
+
+echo "Please enter your GRPC_URL (default is grpc.testnet.layeredge.io:9090, press Enter to use the default):"
 read -r GRPC_URL
 if [ -z "$GRPC_URL" ]; then
   GRPC_URL="grpc.testnet.layeredge.io:9090"
 fi
 
-# Prompt for ZK_PROVER_URL (with default)
-echo -e "\e[1;32mChoose ZK_PROVER_URL (Enter 1 for local http://127.0.0.1:3001, Enter 2 for https://layeredge.mintair.xyz/, default is 2):\e[0m"
+echo "Choose ZK_PROVER_URL (Enter 1 for local http://127.0.0.1:3001, Enter 2 for https://layeredge.mintair.xyz/, default is 1):"
 read -r ZK_CHOICE
-if [ "$ZK_CHOICE" = "1" ]; then
-  ZK_PROVER_URL="http://127.0.0.1:3001"
-  START_LOCAL_PROVER=true
-else
+if [ "$ZK_CHOICE" = "2" ]; then
   ZK_PROVER_URL="https://layeredge.mintair.xyz/"
-  START_LOCAL_PROVER=false
+else
+  ZK_PROVER_URL="http://127.0.0.1:3001"
 fi
 
-# Set environment variables
-echo -e "\e[1;34mSetting environment variables...\e[0m"
+echo "Testing GRPC_URL reachability: $GRPC_URL..."
+GRPC_HOST=$(echo $GRPC_URL | cut -d: -f1)
+GRPC_PORT=$(echo $GRPC_URL | cut -d: -f2)
+nc -zv $GRPC_HOST $GRPC_PORT
+if [ $? -ne 0 ]; then
+  echo "Warning: Unable to connect to $GRPC_URL, check address or try again later"
+fi
+
+# Create the .env file with user-provided and default values
+echo "Setting environment variables..."
 cat << EOF > $WORK_DIR/.env
 GRPC_URL=$GRPC_URL
 CONTRACT_ADDR=cosmos1ufs3tlq4umljk0qfe8k5ya0x6hpavn897u2cnf9k0en9jr7qarqqt56709
 ZK_PROVER_URL=$ZK_PROVER_URL
 API_REQUEST_TIMEOUT=100
-POINTS_API=https://light-node.layeredge.io
+POINTS_API=http://127.0.0.1:8080
 PRIVATE_KEY='$PRIVATE_KEY'
 EOF
+if [ ! -f "$WORK_DIR/.env" ]; then
+  echo "Failed to create .env file, check permissions or disk space"
+  exit 1
+fi
+echo "Environment variables written to $WORK_DIR/.env"
+cat $WORK_DIR/.env
 
-# Build and start the risc0-merkle-service if local prover is selected
-if [ "$START_LOCAL_PROVER" = true ]; then
-  echo -e "\e[1;32mBuilding and starting risc0-merkle-service...\e[0m"
-  if [ -d "$WORK_DIR/risc0-merkle-service" ]; then
-    cd $WORK_DIR/risc0-merkle-service
-    cargo build --release
-    nohup cargo run --release > risc0-merkle-service.log 2>&1 &
-  else
-    echo -e "\e[31mError: risc0-merkle-service folder not found!\e[0m"
-    exit 1
-  fi
+echo "Building and starting risc0-merkle-service..."
+cd $WORK_DIR/risc0-merkle-service
+cargo build
+if [ $? -ne 0 ]; then
+  echo "risc0-merkle-service build failed, check Rust and RISC0 environment"
+  exit 1
+fi
+cargo run > risc0.log 2>&1 & 
+RISC0_PID=$!
+echo "risc0-merkle-service started, PID: $RISC0_PID, logs in risc0.log"
+
+sleep 5
+if ! ps -p $RISC0_PID > /dev/null; then
+  echo "risc0-merkle-service failed to start, check $WORK_DIR/risc0-merkle-service/risc0.log"
+  cat $WORK_DIR/risc0-merkle-service/risc0.log
+  exit 1
 fi
 
-# Build light-node and start in the background
-echo -e "\e[1;32mBuilding light-node...\e[0m"
+echo "Building and starting light-node..."
 cd $WORK_DIR
 go mod tidy
-go build -o light-node main.go
-
-echo -e "\e[1;32mStarting light-node in the background...\e[0m"
-nohup bash -c "source <(grep -v '^#' .env | xargs -d '\n' -I{} echo export {}); ./light-node" > light-node.log 2>&1 &
-
-# If local prover, ensure the service is started
-if [ "$START_LOCAL_PROVER" = true ]; then
-  echo -e "\e[1;32mBuilding and starting risc0-merkle-service...\e[0m"
-  cd $WORK_DIR/risc0-merkle-service
-  nohup cargo run --release > risc0-merkle-service.log 2>&1 &
+go build
+if [ $? -ne 0 ]; then
+  echo "light-node build failed, check Go environment or dependencies"
+  exit 1
 fi
 
-# Fetch the public key after a brief delay
-sleep 10
-echo -e "\n==== Fetching Public Key ====" >> $WORK_DIR/light-node.log
-PUBKEY=$(bash -c "source <(grep -v '^#' .env | xargs -d '\n' -I{} echo export {}); ./light-node get-pubkey")
-echo "$PUBKEY" >> $WORK_DIR/light-node.log
-echo -e "====================\n" >> $WORK_DIR/light-node.log
+source $WORK_DIR/.env
+./light-node > light-node.log 2>&1 &
+LIGHT_NODE_PID=$!
+echo "light-node started, PID: $LIGHT_NODE_PID, logs in light-node.log"
 
-echo -e "\e[1;34mYour Public Key:\e[0m"
-echo "$PUBKEY" | tee -a ~/layeredge_pubkey.txt
+sleep 5
+if ! ps -p $LIGHT_NODE_PID > /dev/null; then
+  echo "light-node failed to start, check $WORK_DIR/light-node.log"
+  cat $WORK_DIR/light-node.log
+  exit 1
+fi
 
-echo -e "\e[1;32mAll services have started in the background!\e[0m"
-echo -e "\e[1;34mCheck logs:\e[0m"
-[ "$START_LOCAL_PROVER" = true ] && echo -e "\e[1;36m- risc0-merkle-service log:\e[0m $WORK_DIR/risc0-merkle-service/risc0-merkle-service.log"
-echo -e "\e[1;36m- light-node log:\e[0m $WORK_DIR/light-node.log"
-echo -e "\e[1;33mTo connect to the dashboard, visit:\e[0m dashboard.layeredge.io and use your public key"
+echo "All services started!"
+echo "Check logs:"
+echo "- risc0-merkle-service: $WORK_DIR/risc0-merkle-service/risc0.log"
+echo "- light-node: $WORK_DIR/light-node.log"
+echo "To connect to the dashboard, visit dashboard.layeredge.io and use your public key"
