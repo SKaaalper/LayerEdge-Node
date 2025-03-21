@@ -15,12 +15,15 @@ echo -e "\e[1;34m==========================================\e[0m\n"
 WORK_DIR="/root/light-node"
 echo -e "\e[1;35mWorking directory:\e[0m $WORK_DIR"
 
+# Open necessary ports
 sudo ufw allow 9090
 sudo ufw allow 3001
 
+# Install necessary dependencies
 sudo apt update && sudo apt upgrade -y
 sudo apt install -y git curl build-essential pkg-config libssl-dev protobuf-compiler screen
 
+# Clone or update the light-node repo
 if [ -d "$WORK_DIR" ]; then
   echo -e "\e[1;33mDetected that $WORK_DIR already exists, updating...\e[0m"
   cd $WORK_DIR && git pull
@@ -29,12 +32,14 @@ else
   git clone https://github.com/Layer-Edge/light-node.git $WORK_DIR && cd $WORK_DIR
 fi
 
+# Install Rust if not already installed
 if ! command -v rustc &> /dev/null; then
   echo -e "\e[1;32mInstalling Rust...\e[0m"
   curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
   source $HOME/.cargo/env
 fi
 
+# Install RISC0 toolchain
 echo -e "\e[1;32mInstalling the RISC0 toolchain manager (rzup)...\e[0m"
 curl -L https://risczero.com/install | bash
 export PATH=$PATH:/root/.risc0/bin
@@ -42,6 +47,7 @@ echo 'export PATH=$PATH:/root/.risc0/bin' >> /root/.bashrc
 source /root/.bashrc
 rzup install
 
+# Install Go 1.23.1
 echo -e "\e[1;32mInstalling/upgrading Go to 1.23.1...\e[0m"
 wget -q https://go.dev/dl/go1.23.1.linux-amd64.tar.gz -O /tmp/go1.23.1.tar.gz
 rm -rf /usr/local/go
@@ -50,6 +56,7 @@ export PATH=/usr/local/go/bin:$PATH
 echo 'export PATH=/usr/local/go/bin:$PATH' >> /root/.bashrc
 source /root/.bashrc
 
+# Prompt for MetaMask private key
 echo -e "\e[1;32mEnter your MetaMask Private Key (64-character hexadecimal string):\e[0m"
 read -r PRIVATE_KEY
 if [ -z "$PRIVATE_KEY" ] || [ ${#PRIVATE_KEY} -ne 64 ]; then
@@ -57,12 +64,14 @@ if [ -z "$PRIVATE_KEY" ] || [ ${#PRIVATE_KEY} -ne 64 ]; then
   exit 1
 fi
 
+# Prompt for GRPC_URL (with default)
 echo -e "\e[1;32mEnter your GRPC_URL (default is grpc.testnet.layeredge.io:9090, press Enter to use default):\e[0m"
 read -r GRPC_URL
 if [ -z "$GRPC_URL" ]; then
   GRPC_URL="grpc.testnet.layeredge.io:9090"
 fi
 
+# Prompt for ZK_PROVER_URL (with default)
 echo -e "\e[1;32mChoose ZK_PROVER_URL (Enter 1 for local http://127.0.0.1:3001, Enter 2 for https://layeredge.mintair.xyz/, default is 2):\e[0m"
 read -r ZK_CHOICE
 if [ "$ZK_CHOICE" = "1" ]; then
@@ -73,6 +82,7 @@ else
   START_LOCAL_PROVER=false
 fi
 
+# Set environment variables
 echo -e "\e[1;34mSetting environment variables...\e[0m"
 cat << EOF > $WORK_DIR/.env
 GRPC_URL=$GRPC_URL
@@ -83,12 +93,13 @@ POINTS_API=https://light-node.layeredge.io
 PRIVATE_KEY='$PRIVATE_KEY'
 EOF
 
+# Build and start the risc0-merkle-service if local prover is selected
 if [ "$START_LOCAL_PROVER" = true ]; then
   echo -e "\e[1;32mBuilding and starting risc0-merkle-service...\e[0m"
   if [ -d "$WORK_DIR/risc0-merkle-service" ]; then
     cd $WORK_DIR/risc0-merkle-service
     cargo build --release
-    nohup cargo run --release > risc0.log 2>&1 &
+    nohup cargo run --release > risc0-merkle-service.log 2>&1 &
   else
     echo -e "\e[31mError: risc0-merkle-service folder not found!\e[0m"
     exit 1
@@ -104,14 +115,15 @@ go build -o light-node main.go
 echo -e "\e[1;32mStarting light-node in the background...\e[0m"
 nohup bash -c "source <(grep -v '^#' .env | xargs -d '\n' -I{} echo export {}); ./light-node" > light-node.log 2>&1 &
 
+# If local prover, ensure the service is started
 if [ "$START_LOCAL_PROVER" = true ]; then
   echo -e "\e[1;32mBuilding and starting risc0-merkle-service...\e[0m"
   cd $WORK_DIR/risc0-merkle-service
   nohup cargo run --release > risc0-merkle-service.log 2>&1 &
 fi
 
+# Fetch the public key after a brief delay
 sleep 10
-
 echo -e "\n==== Fetching Public Key ====" >> $WORK_DIR/light-node.log
 PUBKEY=$(bash -c "source <(grep -v '^#' .env | xargs -d '\n' -I{} echo export {}); ./light-node get-pubkey")
 echo "$PUBKEY" >> $WORK_DIR/light-node.log
@@ -125,4 +137,3 @@ echo -e "\e[1;34mCheck logs:\e[0m"
 [ "$START_LOCAL_PROVER" = true ] && echo -e "\e[1;36m- risc0-merkle-service log:\e[0m $WORK_DIR/risc0-merkle-service/risc0-merkle-service.log"
 echo -e "\e[1;36m- light-node log:\e[0m $WORK_DIR/light-node.log"
 echo -e "\e[1;33mTo connect to the dashboard, visit:\e[0m dashboard.layeredge.io and use your public key"
-
