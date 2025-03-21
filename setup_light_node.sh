@@ -67,8 +67,10 @@ echo -e "\e[1;32mChoose ZK_PROVER_URL (Enter 1 for local http://127.0.0.1:3001, 
 read -r ZK_CHOICE
 if [ "$ZK_CHOICE" = "1" ]; then
   ZK_PROVER_URL="http://127.0.0.1:3001"
+  START_LOCAL_PROVER=true
 else
   ZK_PROVER_URL="https://layeredge.mintair.xyz/"
+  START_LOCAL_PROVER=false
 fi
 
 echo -e "\e[1;34mSetting environment variables...\e[0m"
@@ -81,10 +83,17 @@ POINTS_API=https://light-node.layeredge.io
 PRIVATE_KEY='$PRIVATE_KEY'
 EOF
 
-echo -e "\e[1;32mBuilding and starting risc0-merkle-service...\e[0m"
-cd $WORK_DIR/risc0-merkle-service
-cargo build --release
-nohup cargo run --release > risc0.log 2>&1 &
+if [ "$START_LOCAL_PROVER" = true ]; then
+  echo -e "\e[1;32mBuilding and starting risc0-merkle-service...\e[0m"
+  if [ -d "$WORK_DIR/risc0-merkle-service" ]; then
+    cd $WORK_DIR/risc0-merkle-service
+    cargo build --release
+    nohup cargo run --release > risc0.log 2>&1 &
+  else
+    echo -e "\e[31mError: risc0-merkle-service folder not found!\e[0m"
+    exit 1
+  fi
+fi
 
 echo -e "\e[1;32mBuilding and starting light-node...\e[0m"
 cd $WORK_DIR
@@ -104,6 +113,6 @@ env $(cat $WORK_DIR/.env | xargs) $WORK_DIR/light-node get-pubkey | tee -a ~/lay
 
 echo -e "\e[1;32mAll services have started!\e[0m"
 echo -e "\e[1;34mCheck logs:\e[0m"
-echo -e "\e[1;36m- risc0-merkle-service:\e[0m $WORK_DIR/risc0-merkle-service/risc0.log"
+[ "$START_LOCAL_PROVER" = true ] && echo -e "\e[1;36m- risc0-merkle-service:\e[0m $WORK_DIR/risc0-merkle-service/risc0.log"
 echo -e "\e[1;36m- light-node:\e[0m $WORK_DIR/light-node.log"
 echo -e "\e[1;33mTo connect to the dashboard, visit dashboard.layeredge.io and use your public key link\e[0m"
