@@ -54,10 +54,10 @@ if [ -z "$PRIVATE_KEY" ] || [ ${#PRIVATE_KEY} -ne 64 ]; then
   exit 1
 fi
 
-echo -e "\e[1;32mEnter your GRPC_URL (default is 34.31.74.109:9090, press Enter to use default):\e[0m"
+echo -e "\e[1;32mEnter your GRPC_URL (default is grpc.testnet.layeredge.io:9090, press Enter to use default):\e[0m"
 read -r GRPC_URL
 if [ -z "$GRPC_URL" ]; then
-  GRPC_URL="34.31.74.109:9090"
+  GRPC_URL="grpc.testnet.layeredge.io:9090"
 fi
 
 echo -e "\e[1;32mChoose ZK_PROVER_URL (Enter 1 for local http://127.0.0.1:3001, Enter 2 for https://layeredge.mintair.xyz/, default is 1):\e[0m"
