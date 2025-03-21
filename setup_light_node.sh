@@ -93,8 +93,17 @@ go build -o light-node main.go
 source $WORK_DIR/.env
 nohup ./light-node > light-node.log 2>&1 &
 
+sleep 10
+
+echo -e "\n==== PUBLIC KEY ====" >> light-node.log
+$WORK_DIR/light-node get-pubkey >> light-node.log 2>&1
+echo -e "====================\n" >> light-node.log
+
 echo -e "\e[1;32mAll services have started!\e[0m"
 echo -e "\e[1;34mCheck logs:\e[0m"
 echo -e "\e[1;36m- risc0-merkle-service:\e[0m $WORK_DIR/risc0-merkle-service/risc0.log"
 echo -e "\e[1;36m- light-node:\e[0m $WORK_DIR/light-node.log"
 echo -e "\e[1;33mTo connect to the dashboard, visit dashboard.layeredge.io and use your public key link\e[0m"
+
+echo -e "\e[1;34mYour Public Key:\e[0m"
+$WORK_DIR/light-node get-pubkey | tee -a ~/layeredge_pubkey.txt
