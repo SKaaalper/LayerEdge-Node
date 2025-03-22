@@ -105,15 +105,14 @@ if [ $? -ne 0 ]; then
   echo "Warning: Unable to connect to $GRPC_URL, check address or try again later"
 fi
 
-# Create the .env file with user-provided and default values
 echo "Setting environment variables..."
 cat << EOF > $WORK_DIR/.env
-GRPC_URL=$GRPC_URL
+GRPC_URL=grpc.testnet.layeredge.io:9090
 CONTRACT_ADDR=cosmos1ufs3tlq4umljk0qfe8k5ya0x6hpavn897u2cnf9k0en9jr7qarqqt56709
-ZK_PROVER_URL=$ZK_PROVER_URL
+ZK_PROVER_URL=https://layeredge.mintair.xyz/
 API_REQUEST_TIMEOUT=100
-POINTS_API=http://127.0.0.1:8080
-PRIVATE_KEY='$PRIVATE_KEY'
+POINTS_API=https://light-node.layeredge.io
+PRIVATE_KEY='cli-node-private-key'
 EOF
 if [ ! -f "$WORK_DIR/.env" ]; then
   echo "Failed to create .env file, check permissions or disk space"
